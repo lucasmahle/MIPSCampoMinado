@@ -93,8 +93,15 @@ fim:
 #########################
 #    RENDERIZA MAPA     #
 #########################
+# Argumentos:
 # $a0 -> Endereço do array
 # $a1 -> Numero de linhas e colunas
+# 
+# Retorno:
+# void
+#
+# Descrição:
+# Intera array informado e
 renderiza_mapa:
 	add  $t0, $zero, $zero # i = linha
 	move $t7, $a1 # salva o endereço para liberar registrador $a
