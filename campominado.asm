@@ -38,9 +38,20 @@ main:
 	# CORREÇÕES:
 	# Passar inicialia_array como argumento
 	
+	
 	# PRE JOGO
+	##### CORRIGIR AQUI #####
+	
+	
+	
+	
 	# inicializa array mapa com 0
+	la   $a0, matriz_mapa # a0 -> matriz
+	move $a1, $0          # a1 -> valor inicial
+	jal  inicializa_array
 	# inicializa array user com -1
+	la   $a0, matriz_user # a0 -> matriz
+	addi $a1, $0, -1      # a1 -> valor inicial
 	jal  inicializa_array
 	
 	# obtem tamanho do mapa
@@ -82,13 +93,9 @@ fim:
 	addi $v0, $zero, 10 # exit 
 	syscall
 		
-	
-	# Funcoes
-#nome_funcao:
-# 	j   return_nome_funcao
-#return_nome_funcao:
-#	jr   $ra
-
+		
+		
+		
 
 #########################
 #    RENDERIZA MAPA     #
@@ -101,7 +108,11 @@ fim:
 # void
 #
 # Descrição:
-# Intera array informado e
+# Intera array informado e exibe no console
+# o grid do mapa.
+# Para valores negativos, é exibido '?' ao 
+# invés de exibir o número negativo
+#########################
 renderiza_mapa:
 	add  $t0, $zero, $zero # i = linha
 	move $t7, $a1 # salva o endereço para liberar registrador $a
@@ -155,7 +166,24 @@ return_renderiza_mapa:
 	jr   $ra
 
 
-	
+
+
+
+#########################
+#   INICIALIZA ARRAY    #
+#########################
+# Argumentos:
+# $a0 -> Endereço do array
+# $a1 -> Valor para inicializar
+# 
+# Retorno:
+# void
+#
+# Descrição:
+# Intera array informado e seta
+# em todos os campos o valor passado
+# pelo parâmetro
+#########################
 inicializa_array:
 	add  $t0, $zero, $zero 
 	la   $t2, matriz_mapa
@@ -178,6 +206,22 @@ return_inicializa_array:
 	
 	
 	
+	
+	
+#########################
+#     OBTER TAMANHO     #
+#########################
+# Argumentos:
+# null
+# 
+# Retorno:
+# $vo -> Tamanho informado pelo usuário
+#
+# Descrição:
+# Exibe para o usuário as opções de tamanho.
+# Caso o usuário insira um valor inválido,
+# a função e reprocessada.
+#########################
 obtem_tamanho:
 	# Mensagem para informar tamanho
 	addi $v0, $0, 4 # print info
