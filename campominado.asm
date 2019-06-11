@@ -6,7 +6,7 @@ prompt_opcoes: 		.asciiz "Escolha um dos tamanhos:\n5) 5x5\n7) 7x7\n9) 9x9\nTama
 prompt_coordenada_i: 	.asciiz "Informe a linha:\n"
 prompt_coordenada_j: 	.asciiz "Informe a coluna:\n"
 msg_tamanho_errado: 	.asciiz "\n\nO tamanho informado é inválido!\n\n"
-nova_linha:	 	.asciiz "\n"
+print_nova_linha: 	.asciiz "\n"
 print_espaco:	 	.asciiz " "
 interrogacao:	 	.asciiz "?"
 
@@ -19,6 +19,18 @@ derrota_user:	.byte 0		# Quando usuário abriu um campo com bomba
 
 qtd_disponivel:	.byte 0		# Controla quantidade de campos disponíveis para abrir
 qtd_explorado:	.byte 0		# Controla quantidade de campos já abertos
+
+
+#FUNCAO INJETACA (INSERE_BOMBA)
+campo:			.space		324
+semente:		.asciiz		"\nEntre com a semente da funcao Rand: "
+espaco:			.asciiz		" "
+nova_linha:		.asciiz		"\n"
+posicao:		.asciiz		"\nPosicao: "
+salva_S0:		.word		0
+salva_ra:		.word		0
+salva_ra1:		.word		0
+#FUNCAO INJETACA (INSERE_BOMBA)
 
 	.text
 main:
@@ -40,9 +52,9 @@ main:
 	# carrega bombas no array mapa
 	la   $a0, matriz_mapa # a0 -> matriz
 	lw   $a1, tamanho     # a1 -> qtd linhas
-	jal  insere_bombas
+	jal  INSERE_BOMBA
 	
-	la   $a0, matriz_user
+	la   $a0, matriz_mapa
 	lw   $a1, tamanho
 	jal  renderiza_mapa
 	
@@ -66,6 +78,10 @@ main:
 	# exibe mensagens conforme resultado
 	j    fim
 	
+fim:
+	addi $v0, $zero, 10 # exit 
+	syscall
+		
 	
 	# Funcoes
 #nome_funcao:
@@ -73,6 +89,12 @@ main:
 #return_nome_funcao:
 #	jr   $ra
 
+
+#########################
+#    RENDERIZA MAPA     #
+#########################
+# $a0 -> Endereço do array
+# $a1 -> Numero de linhas e colunas
 renderiza_mapa:
 	add  $t0, $zero, $zero # i = linha
 	move $t7, $a1 # salva o endereço para liberar registrador $a
@@ -94,7 +116,7 @@ loop_renderiza_mapa_j:
 	lw   $s0, 0($t2)
 	
 	# print do valor
-	sgt  $t3, $s0, 0 # valores negativos imprime '?'
+	sge  $t3, $s0, 0 # valores negativos imprime '?'
 	beq  $t3, $zero, loop_renderiza_print_interrogacao
 	addi $v0, $zero, 1 # print integer
 	la   $a0, 0($s0)
@@ -118,30 +140,13 @@ fim_loop_renderiza_mapa_j:
 
 	# print novalinha
 	addi $v0, $zero, 4 # print string
-	la   $a0, nova_linha
+	la   $a0, print_nova_linha
 	syscall
 	j    loop_renderiza_mapa_i
 
 return_renderiza_mapa:
 	jr   $ra
 
-############# APAGAR ISSO ANTES DE ENVIAR #################
-insere_bombas:
-	# coloca bombas especificas 
-	#lw   $t0, tamanho # t0 -> tamanho 
-	#lw   $t1, 1 # t1 = i (linha)
-	#lw   $t2, 2 # t2 = j (colunas)
-	#mul  $t1, $t1, $a1 # t1 = i * tamanho
-	#add  $t4, $t1, $t2 # n = (i * tamanho) + j
-	addi $t0, $zero, 9
-	addi $t4, $a0, 28 # bomba fixa na posicao 2x3
-	addi $t5, $a0, 68 # bomba fixa na posicao 4x3
-	sw   $t0, 0($t4)
-	sw   $t0, 0($t5)
- 	j return_insere_bombas
-return_insere_bombas:
-	jr   $ra
-############# APAGAR ISSO ANTES DE ENVIAR #################
 
 	
 inicializa_array:
@@ -187,4 +192,110 @@ obtem_tamanho:
 return_obtem_tamanho:
 	jr   $ra
 
-fim:
+
+
+
+
+
+
+#FUNCAO INJETACA (INSERE_BOMBA)
+INSERE_BOMBA:
+		la	$t0, salva_S0
+		sw  $s0, 0($t0)		# salva conteudo de s0 na memoria
+		la	$t0, salva_ra
+		sw  $ra, 0($t0)		# salva conteudo de ra na memoria
+		
+		add $t0, $zero, $a0	# salva a0 em t0
+		add $t1, $zero, $a1	# salva a1 em t1
+		
+		li	$v0, 4			# 
+		la	$a0, nova_linha
+		syscall			
+
+verifica_menor_que_5:
+		slti $t3, $t1, 5
+		beq	 $t3, $0, verifica_maior_que_9
+		addi $t1, $0, 5			#se tamanho do campo menor que 5 atribui 5
+		add  $a1, $0, $t1
+verifica_maior_que_9:
+		slti $t3, $t1, 9
+		bne	 $t3, $0, testa_5
+		addi $t1, $0, 9			
+		add  $a1, $0, $t1
+testa_5:
+		addi $t3, $0, 5
+		bne  $t1, $t3, testa_7
+		addi $t2, $0, 10 # 10 bombas no campo 5x5
+		j	 pega_semente
+testa_7:
+		addi $t3, $0, 7
+		bne  $t1, $t3, testa_9
+		addi $t2, $0, 20 # 20 bombas no campo 7x7
+		j	 pega_semente
+testa_9:
+		addi $t3, $0, 9
+		bne  $t1, $t3, else_qtd_bombas
+		addi $t2, $0, 40 # 40 bombas no campo 9x9
+		j	 pega_semente
+else_qtd_bombas:
+		addi $t2, $0, 25 # seta para 25 bomas no else		
+pega_semente:
+		jal SEED
+		add $t3, $zero, $zero # inicia contador de bombas com 0
+INICIO_LACO:
+		beq $t2, $t3, FIM_LACO
+		
+		add $a0, $zero, $t1 # carrega limite para %
+		jal PSEUDO_RAND
+		add $t4, $zero, $v0	# pega linha sorteada e coloca em t4
+   		jal PSEUDO_RAND
+		add $t5, $zero, $v0	# pega coluna sorteada e coloca em t5
+		mult $t4, $t1
+		mflo $t4
+		add  $t4, $t4, $t5  # calcula (L * tam) + C
+		add  $t4, $t4, $t4  # multtiplica por 2
+		add  $t4, $t4, $t4  # multtiplica por 4
+		add	 $t4, $t4, $t0	# calcula Base + deslocamento
+		lw	$t5, 0($t4)		# Le posicao de memoria LxC
+
+		
+		addi $t6, $zero, 9	
+		beq  $t5, $t6, PULA_ATRIB
+		sw   $t6, 0($t4)
+		addi $t3, $t3, 1		
+PULA_ATRIB:
+		j	INICIO_LACO
+FIM_LACO:	
+		la	$t0, salva_S0
+		lw  $s0, 0($t0)		# recupera conteudo de s0 da memória
+		la	$t0, salva_ra
+		lw  $ra, 0($t0)		# recupera conteudo de ra da memória		
+		jr $ra
+SEED:
+	li	$v0, 4			# lendo semente da funcao rand
+	la	$a0, semente
+	syscall
+	li	$v0, 5		#
+	syscall
+	add	$a0, $zero, $v0	# coloca semente de bombas em a0
+	bne  $a0, $zero, DESVIA
+	lui  $s0,  1		# carrega semente 100001
+ 	ori $s0, $s0, 34465	# 
+	jr $ra	
+DESVIA:
+	add	$s0, $zero, $a0		# carrega semente passada em a0
+	jr $ra
+	
+PSEUDO_RAND:
+	addi $t6, $zero, 125  	# carrega 125
+	lui  $t5,  42			# carrega fator: 2796203
+	ori $t5, $t5, 43691 	#-
+	
+	mult  $s0, $t6			# a * 125
+	mflo $s0				# a = (a * 125)
+	div  $s0, $t5			# a % 2796203
+	mfhi $s0				# a = (a % 2796203)
+	div  $s0, $a0			# a % lim
+	mfhi $v0                # v0 = a % lim
+	jr $ra
+#FUNCAO INJETACA (INSERE_BOMBA)
