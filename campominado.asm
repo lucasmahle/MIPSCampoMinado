@@ -34,17 +34,7 @@ salva_ra1:		.word		0
 
 	.text
 main:
-
-	# CORREÇÕES:
-	# Passar inicialia_array como argumento
-	
-	
 	# PRE JOGO
-	##### CORRIGIR AQUI #####
-	
-	
-	
-	
 	# inicializa array mapa com 0
 	la   $a0, matriz_mapa # a0 -> matriz
 	move $a1, $0          # a1 -> valor inicial
@@ -57,22 +47,29 @@ main:
 	# obtem tamanho do mapa
 	jal  obtem_tamanho
 	# salvar o valor na label tamanho
-	la   $t1, tamanho # endereco da referencia de tamanho
- 	sw   $v0, 0($t1)  # salva o resultado
+	la   $t1, tamanho
+ 	sw   $v0, 0($t1)
 	
 	# carrega bombas no array mapa
 	la   $a0, matriz_mapa # a0 -> matriz
 	lw   $a1, tamanho     # a1 -> qtd linhas
 	jal  INSERE_BOMBA
 	
+	#DEBUG
 	la   $a0, matriz_mapa
 	lw   $a1, tamanho
 	jal  renderiza_mapa
 	
 	# calcula valor das posições
+	la   $a0, matriz_mapa
+	lw   $a1, tamanho
+	jal calcula_mapa
 	
-	
-	
+	#DEBUG
+	la   $a0, matriz_mapa
+	lw   $a1, tamanho
+	jal  renderiza_mapa
+
 	
 	# INICIO
 	# loop enquanto jogo esta em andamento
@@ -92,6 +89,140 @@ main:
 fim:
 	addi $v0, $zero, 10 # exit 
 	syscall
+
+		
+	
+	
+	
+#########################
+#     CALCULA ARRAY     #
+#########################
+# Argumentos:
+# $a0 -> Endereço do array
+# $a1 -> Numero de linhas e colunas
+# 
+# Retorno:
+# void
+#
+# Descrição:
+# Intera array em busca das bombas
+# e incrementa valores nos vizinhos
+#########################
+calcula_mapa:
+	add  $s2, $zero, $zero # i = linha
+	move $s0, $a0 # endereço array
+	move $s1, $a1 # tamanho
+	move $s4, $ra # salva retorno
+
+loop_calcula_mapa_i:
+	slt  $t3, $s2, $s1 # i < tamanho
+	beq  $t3, $zero, return_calcula_mapa
+	add  $s3, $zero, $zero # j = coluna
+loop_calcula_mapa_j:
+	slt  $t3, $s3, $s1 # j < tamanho
+	beq  $t3, $zero, fim_loop_calcula_mapa_j
+	
+	# leitura da posicao
+	mul  $t4, $s2, $s1 # posicao = (i * tamanho)
+	add  $t4, $t4, $s3 # posicao = j + (i * tamanho)
+	sll  $t4, $t4, 2   # posicao = 4 * (j + (i * tamanho))
+	add  $t4, $t4, $s0 # array[posicao]
+	lw   $t6, 0($t4)
+	
+	# se nao for bomba, continua a procura
+	bne  $t6, 9, jump_calcula_mapa
+	# mas se for, chama a funcao de incremento dos vizinhos
+	move $a0, $s0 # $a0 -> endereço do array
+	move $a1, $s1 # $a1 -> tamanho
+	move $a2, $s2 # $a2 -> i
+	move $a3, $s3 # $a3 -> j
+	jal incrementa_bomba_vizinho
+
+jump_calcula_mapa:
+
+	addi $s3, $s3, 1 # incremento coluna
+	j    loop_calcula_mapa_j
+fim_loop_calcula_mapa_j:
+	addi $s2, $s2, 1 # incremento linha
+	j    loop_calcula_mapa_i
+
+return_calcula_mapa:
+	move $ra, $s4 # seta o retorno
+	jr   $ra
+
+		
+	
+	
+	
+############################
+# INCREMENTA BOMBA VIZINHO #
+############################
+# Argumentos:
+# $a0 -> Endereço do array
+# $a1 -> Numero de linhas e colunas
+# $a2 -> Linha (i)
+# $a3 -> Coluna (j)
+# 
+# Retorno:
+# void
+#
+# Descrição:
+# Calcula a posicao dos vizinhos e
+# incrementa o valor deles
+#########################
+incrementa_bomba_vizinho:
+	# Começa na linha anterior apenas se o i != 0
+	# Só termina interação i quando:
+		# i == maxI 
+		# OU
+		# i == tamanho
+	# maxI incrementa em cada for
+	# Só termina interação j quanto:
+		# j == maxJ
+		# OU
+		# j == tamanho
+	# Pula quando valor da posição == 9
+	
+	# maxI e maxJ começam com 1
+	# caso volte uma linha/coluna
+	# então começa com 0
+	addi $t0, $0, 1 # $t0 -> maxI 
+	addi $t1, $0, 1 # $t1 -> maxJ
+	beq  $a2, 0, pula_i_incrementa_bomba_vizinho # i == 0 não volta a linha
+	addi $t0, $0, 0 # se volta linha, então maxI começa com 0
+	addi $a2, $a2, -1 # volta linha
+pula_i_incrementa_bomba_vizinho:
+	beq  $a3, 0, pula_j_incrementa_bomba_vizinho # j == 0 não volta a coluna
+	addi $t1, $0, 0 # se volta linha, então maxJ começa com 0
+	addi $a3, $a3, -1 # volta coluna
+pula_j_incrementa_bomba_vizinho:
+	
+
+loop_incrementa_bomba_vizinho_i:
+	add  $t0, $t0, 1 # maxI++
+	beq  $t0, 3, return_incrementa_bomba_vizinho # maxI == 3
+	beq  $t0, $a1, return_incrementa_bomba_vizinho # maxI == tamanho
+	
+loop_incrementa_bomba_vizinho:
+	# leitura da posicao
+	mul  $t4, $a2, $a1 # posicao = (i * tamanho)
+	add  $t4, $t4, $a3 # posicao = j + (i * tamanho)
+	sll  $t4, $t4, 2   # posicao = 4 * (j + (i * tamanho))
+	add  $t2, $a0, $t4 # array[posicao]
+	lw   $t6, 0($t2)
+	beq  $t6, 9, loop_incrementa_bomba_vizinho_j # ignora o campo bomba
+	addi $t6, $t6, 1 # adiciona o valor da posicao
+	sw   $t6, 0($t2)
+	
+loop_incrementa_bomba_vizinho_j:	
+	add  $t1, $t1, 1 # maxJ++
+	beq  $t1, 3, return_incrementa_bomba_vizinho # maxJ == 3
+	beq  $t0, $a1, return_incrementa_bomba_vizinho # j == tamanho
+	j    loop_incrementa_bomba_vizinho
+
+
+return_incrementa_bomba_vizinho:
+	jr   $ra
 		
 		
 		
@@ -117,7 +248,11 @@ renderiza_mapa:
 	add  $t0, $zero, $zero # i = linha
 	move $t7, $a1 # salva o endereço para liberar registrador $a
 	move $t6, $a0
-
+	
+	# print novalinha
+	addi $v0, $zero, 4 # print string
+	la   $a0, print_nova_linha
+	syscall
 loop_renderiza_mapa_i:
 	slt  $t3, $t0, $t7 # i < tamanho
 	beq  $t3, $zero, return_renderiza_mapa
@@ -185,18 +320,15 @@ return_renderiza_mapa:
 # pelo parâmetro
 #########################
 inicializa_array:
-	add  $t0, $zero, $zero 
-	la   $t2, matriz_mapa
-	la   $t3, matriz_user
-	addi $t4, $zero, -1 # valor inicial para o mapa renderizado
+	add  $t0, $zero, $zero # count
+	move $t1, $a0 # t1 -> endereço do mapa
+	move $t2, $a1 # t2 -> valor inicial
 
 loop_inicializa_array:
 	slti $t5, $t0, 9 # count < 9
 	beq  $t5, $zero, return_inicializa_array
-	sw   $zero, 0($t2) # seta 0 na posição count para o array mapa
-	sw   $t4,   0($t3) # seta -1 na posição count para o array user
-	addi $t2, $t2, 4 # apontador do enderço array_mapa
-	addi $t3, $t3, 4 # apontador do enderço array_user
+	sw   $t2, 0($t1) # seta o valor passado por parametro na posição count
+	addi $t1, $t1, 4 # apontador do enderço do array
 	addi $t0, $t0, 1 # incremento do contador
 	j    loop_inicializa_array
 	
