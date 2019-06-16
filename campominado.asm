@@ -118,6 +118,7 @@ loop_calcula_mapa_i:
 	slt  $t3, $s2, $s1 # i < tamanho
 	beq  $t3, $zero, return_calcula_mapa
 	add  $s3, $zero, $zero # j = coluna
+	
 loop_calcula_mapa_j:
 	slt  $t3, $s3, $s1 # j < tamanho
 	beq  $t3, $zero, fim_loop_calcula_mapa_j
@@ -136,12 +137,12 @@ loop_calcula_mapa_j:
 	move $a1, $s1 # $a1 -> tamanho
 	move $a2, $s2 # $a2 -> i
 	move $a3, $s3 # $a3 -> j
-	jal incrementa_bomba_vizinho
+	jal  incrementa_bomba_vizinho
 
 jump_calcula_mapa:
-
 	addi $s3, $s3, 1 # incremento coluna
 	j    loop_calcula_mapa_j
+	
 fim_loop_calcula_mapa_j:
 	addi $s2, $s2, 1 # incremento linha
 	j    loop_calcula_mapa_i
@@ -171,57 +172,51 @@ return_calcula_mapa:
 # incrementa o valor deles
 #########################
 incrementa_bomba_vizinho:
-	# Começa na linha anterior apenas se o i != 0
-	# Só termina interação i quando:
-		# i == maxI 
-		# OU
-		# i == tamanho
-	# maxI incrementa em cada for
-	# Só termina interação j quanto:
-		# j == maxJ
-		# OU
-		# j == tamanho
-	# Pula quando valor da posição == 9
-	
-	# maxI e maxJ começam com 1
-	# caso volte uma linha/coluna
-	# então começa com 0
 	addi $t0, $0, 1 # $t0 -> maxI 
 	addi $t1, $0, 1 # $t1 -> maxJ
 	beq  $a2, 0, pula_i_incrementa_bomba_vizinho # i == 0 não volta a linha
 	addi $t0, $0, 0 # se volta linha, então maxI começa com 0
 	addi $a2, $a2, -1 # volta linha
+	
 pula_i_incrementa_bomba_vizinho:
 	beq  $a3, 0, pula_j_incrementa_bomba_vizinho # j == 0 não volta a coluna
 	addi $t1, $0, 0 # se volta linha, então maxJ começa com 0
 	addi $a3, $a3, -1 # volta coluna
-pula_j_incrementa_bomba_vizinho:
 	
+pula_j_incrementa_bomba_vizinho:
+	add  $t4, $0, $t1 # $t4 -> grava o inicio da contagem da coluna
+	add  $t5, $0, $a3 # $t5 -> grava o inicio de j
+	j    loop_incrementa_bomba_vizinho
 
 loop_incrementa_bomba_vizinho_i:
 	add  $t0, $t0, 1 # maxI++
+	add  $a2, $a2, 1 # i++
 	beq  $t0, 3, return_incrementa_bomba_vizinho # maxI == 3
 	beq  $t0, $a1, return_incrementa_bomba_vizinho # maxI == tamanho
+	add  $t1, $0, $t4 # seta novamente o valor inicial da contagem de coluna
+	add  $a3, $0, $t5 # reset em j
 	
-loop_incrementa_bomba_vizinho:
+	# $a2 -> i
+	# $a3 -> j
+loop_incrementa_bomba_vizinho:	
 	# leitura da posicao
-	mul  $t4, $a2, $a1 # posicao = (i * tamanho)
-	add  $t4, $t4, $a3 # posicao = j + (i * tamanho)
-	sll  $t4, $t4, 2   # posicao = 4 * (j + (i * tamanho))
-	add  $t2, $a0, $t4 # array[posicao]
-	lw   $t6, 0($t2)
-	beq  $t6, 9, loop_incrementa_bomba_vizinho_j # ignora o campo bomba
-	addi $t6, $t6, 1 # adiciona o valor da posicao
-	sw   $t6, 0($t2)
+	mul  $t3, $a2, $a1 # posicao = (i * tamanho)
+	add  $t3, $t3, $a3 # posicao = j + (i * tamanho)
+	sll  $t3, $t3, 2   # posicao = 4 * (j + (i * tamanho))
+	add  $t3, $t3, $a0 # array[posicao]
+	lw   $t7, 0($t3)   # lê valor da posicao
+	beq  $t7, 9, loop_incrementa_bomba_vizinho_j # ignora o campo bomba
+	addi $t7, $t7, 1   # adiciona o valor da posicao
+	sw   $t7, 0($t3)   # escreve valor na posicao
 	
 loop_incrementa_bomba_vizinho_j:	
 	add  $t1, $t1, 1 # maxJ++
-	beq  $t1, 3, return_incrementa_bomba_vizinho # maxJ == 3
-	beq  $t0, $a1, return_incrementa_bomba_vizinho # j == tamanho
+	add  $a3, $a3, 1 # j++
+	beq  $t1, 3, loop_incrementa_bomba_vizinho_i # maxJ == 3
+	beq  $a3, $a1, loop_incrementa_bomba_vizinho_i # j == tamanho
 	j    loop_incrementa_bomba_vizinho
 
-
-return_incrementa_bomba_vizinho:
+return_incrementa_bomba_vizinho:                          
 	jr   $ra
 		
 		
