@@ -3,8 +3,10 @@ matriz_mapa: 	.space 324 	# matriz_mapa armazena os valores da célula
 matriz_user: 	.space 324 	# matriz_mapa armazena a renderização
 				# 324 = 9*9 Maior matriz porssível
 prompt_opcoes: 		.asciiz "Escolha um dos tamanhos:\n5) 5x5\n7) 7x7\n9) 9x9\nTamanho: "
-prompt_coordenada_i: 	.asciiz "Informe a linha:\n"
-prompt_coordenada_j: 	.asciiz "Informe a coluna:\n"
+prompt_coordenada_i: 	.asciiz "\nInforme a linha: "
+msg_i_errado:	 	.asciiz "Linha informada é inválida\n"
+prompt_coordenada_j: 	.asciiz "\nInforme a coluna: "
+msg_j_errado:	 	.asciiz "Coluna informada é inválida\n"
 msg_tamanho_errado: 	.asciiz "\n\nO tamanho informado é inválido!\n\n"
 print_nova_linha: 	.asciiz "\n"
 print_espaco:	 	.asciiz " "
@@ -55,25 +57,34 @@ main:
 	lw   $a1, tamanho     # a1 -> qtd linhas
 	jal  INSERE_BOMBA
 	
-	#DEBUG
-	la   $a0, matriz_mapa
-	lw   $a1, tamanho
-	jal  renderiza_mapa
-	
 	# calcula valor das posições
 	la   $a0, matriz_mapa
 	lw   $a1, tamanho
-	jal calcula_mapa
-	
-	#DEBUG
-	la   $a0, matriz_mapa
-	lw   $a1, tamanho
-	jal  renderiza_mapa
+	jal  calcula_mapa
 
 	
 	# INICIO
-	# loop enquanto jogo esta em andamento
+	# define controle do jogo
+	addi $t1, $0, 1
+	la   $t0, jogo_andamento
+	sw   $t1, 0($t0)
+	
+loop_jogo:
+	la   $a0, matriz_user
+	lw   $a1, tamanho
+	jal  renderiza_mapa
+
 	# le IxJ informado pelo usuario
+	lw   $a0, tamanho
+	jal  obtem_ij_usuario
+	add  $t0, $v0, $0
+	add  $t1, $v1, $0
+	addi $v0, $zero, 1 # print integer
+	add  $a0, $0, $t0
+	syscall
+	add  $a0, $0, $t1
+	syscall
+	
 	# acessa valor no mapa
 	# se o campo for 9
 		# seta derrota e finalizar loop
@@ -82,13 +93,93 @@ main:
 	# jogo finaliza quando qtd explorado == qtd disponivel
 	
 	
+	# loop enquanto jogo esta em andamento
+	lw   $t0, jogo_andamento
+	beq  $t0, $0, fim_jogo
+	j    loop_jogo
+	
+	
 	# POS JOGO
+fim_jogo:
 	# exibe mensagens conforme resultado
 	j    fim
 	
 fim:
 	addi $v0, $zero, 10 # exit 
 	syscall
+
+		
+	
+	
+	
+#########################
+#   OBTEM I J USUARIO   #
+#########################
+# Argumentos:
+# $a0 -> Numero de linhas e colunas
+# 
+# Retorno:
+# $v0 -> Linha
+# $v1 -> Coluna
+#
+# Descrição:
+# Exibe mensagem para informar a linha
+# e a coluna deseja. Caso seja um valor
+# inválido, é repetida a entrada
+#########################
+obtem_ij_usuario:
+	# Salva o argumento do tamanho
+	add  $t0, $0, $a0
+i_obtem_ij_usuario:
+	# Mensagem para informar linha
+	addi $v0, $0, 4 # print string
+	la   $a0, prompt_coordenada_i
+	syscall
+	addi $v0, $0, 5 # entrada de dados
+	syscall
+	# verifica se o valor é valido
+	add  $t1, $0, $v0
+	sgt  $t2, $t1, $0 # valor negativo
+	beq  $t2, 0, erro_i_ij_usuario
+	sgt  $t2, $t1, $t0 # maior que o limite
+	bne  $t2, 0, erro_i_ij_usuario
+	add  $t6, $0, $t1
+	
+j_obtem_ij_usuario:
+	# Mensagem para informar linha
+	addi $v0, $0, 4 # print string
+	la   $a0, prompt_coordenada_j
+	syscall
+	addi $v0, $0, 5 # entrada de dados
+	syscall
+	# verifica se o valor é valido
+	add  $t1, $0, $v0
+	sgt  $t2, $t1, $0 # valor negativo
+	beq  $t2, 0, erro_j_ij_usuario
+	sgt  $t2, $t1, $t0 # maior que o limite
+	bne  $t2, 0, erro_j_ij_usuario
+	add  $t7, $0, $t1
+	
+	j    return_obtem_ij_usuario
+	
+erro_i_ij_usuario:
+	# Mensagem de linha errada
+	addi $v0, $0, 4 # print info
+	la   $a0, msg_i_errado
+	syscall
+	j    i_obtem_ij_usuario
+	
+erro_j_ij_usuario:
+	# Mensagem de linha errada
+	addi $v0, $0, 4 # print info
+	la   $a0, msg_j_errado
+	syscall
+	j    j_obtem_ij_usuario
+
+return_obtem_ij_usuario:
+	add  $v0, $0, $t6
+	add  $v1, $0, $t7
+	jr   $ra
 
 		
 	
