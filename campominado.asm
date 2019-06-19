@@ -62,6 +62,12 @@ main:
 	la   $a0, matriz_mapa
 	lw   $a1, tamanho
 	jal  calcula_mapa
+	
+	# inicia contadores
+	lw   $t0, tamanho
+	mul  $t1, $t0, $t0
+	sw   $t1, qtd_disponivel
+	sw   $0, qtd_explorado
 
 	
 	# INICIO
@@ -71,6 +77,15 @@ main:
 	sw   $t1, 0($t0)
 	
 loop_jogo:
+	# loop enquanto jogo esta em andamento
+	lw   $t0, jogo_andamento
+	beq  $t0, $0, fim_jogo
+	
+	# renderiza mapa a cada rodada
+	la   $a0, matriz_user
+	lw   $a1, tamanho
+	jal  renderiza_mapa
+
 	# le IxJ informado pelo usuario
 	lw   $a0, tamanho
 	jal  obtem_ij_usuario
@@ -78,21 +93,46 @@ loop_jogo:
 	# para tratar via cálculo, precisamos a partir de 0
 	# por isso é subtraído um no momento momento
 	# que salva em variáveis temporárias
-	addi $t0, $v0, -1 #i 
-	addi $t1, $v1, -1 #j
+	addi $s0, $v0, -1 #i 
+	addi $s1, $v1, -1 #j
 	
-	# acessa valor no mapa
+	# acessa endereço ref i e j do mapa
+	la   $a0, matriz_mapa # endereço array
+	lw   $a1, tamanho     # tamanho matriz
+	add  $a2, $0, $s0     # i
+	add  $a3, $0, $s1     # j
+	jal  obtem_addr_matriz
+	lw   $s2, 0($v0) # valor do campo
 	
-	# se o campo for 9
-		# seta derrota e finalizar loop
-	# incrementa controle de campos
+	# se o campo for 9, então fim de jogo
+	# beq  $t2, 9, campo_bomba
+	j    campo_seguro
+
+campo_seguro:
 	# replica o valor no mapa de renderização
+	# user[i][j] = mapa[i][j] 
+	la   $a0, matriz_user # endereço array
+	lw   $a1, tamanho     # tamanho matriz
+	add  $a2, $0, $s0     # i
+	add  $a3, $0, $s1     # j
+	jal  obtem_addr_matriz
+	sw   $s2, 0($v0) # replica o valor do campo
+	
+	# incrementa controle de campos
+	lw   $t0, qtd_explorado
+	addi $t0, $t0, 1
+	sw   $t0, qtd_explorado
+	
+	j    fim_rodada
+	
+
+campo_bomba:
+	# seta derrota e finalizar loop
+	sw   $0, jogo_andamento
+	j    loop_jogo
+
+fim_rodada:	
 	# jogo finaliza quando qtd explorado == qtd disponivel
-	
-	
-	# loop enquanto jogo esta em andamento
-	lw   $t0, jogo_andamento
-	beq  $t0, $0, fim_jogo
 	j    loop_jogo
 	
 	
@@ -104,6 +144,44 @@ fim_jogo:
 fim:
 	addi $v0, $zero, 10 # exit 
 	syscall
+
+		
+	
+	
+	
+#########################
+#   OBTEM ADDR MATRIZ   #
+#########################
+# Argumentos:
+# $a0 -> Endereço matriz
+# $a1 -> Tamanho da matriz
+# $a2 -> Linha
+# $a3 -> Colina
+# 
+# Retorno:
+# $v0 -> Endereço do campo
+#
+# Descrição:
+# Retorna o endereço do campo apontado
+# por i e j
+# Obs: i e j a partir de 0
+#########################
+obtem_addr_matriz:
+	# Salva o argumentos
+	add  $t0, $0, $a0 # enderço
+	add  $t1, $0, $a1 # tamanho
+	add  $t2, $0, $a2 # i
+	add  $t3, $0, $a3 # j
+
+	# leitura da posicao
+	mul  $t4, $a2, $a1 # posicao = (i * tamanho)
+	add  $t4, $t4, $a3 # posicao = j + (i * tamanho)
+	sll  $t4, $t4, 2   # posicao = 4 * (j + (i * tamanho))
+	add  $t4, $t4, $a0 # array[posicao]
+	lw   $v0, 0($t4)
+	
+return_obtem_addr_matriz:
+	jr   $ra
 
 		
 	
