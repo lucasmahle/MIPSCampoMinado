@@ -3,9 +3,9 @@ matriz_mapa: 	.space 324 	# matriz_mapa armazena os valores da célula
 matriz_user: 	.space 324 	# matriz_mapa armazena a renderização
 				# 324 = 9*9 Maior matriz porssível
 prompt_opcoes: 		.asciiz "Escolha um dos tamanhos:\n5) 5x5\n7) 7x7\n9) 9x9\nTamanho: "
-prompt_coordenada_i: 	.asciiz "\nInforme a linha: "
+prompt_coordenada_i: 	.asciiz "\nInforme a linha (a partir de 1): "
 msg_i_errado:	 	.asciiz "Linha informada é inválida\n"
-prompt_coordenada_j: 	.asciiz "\nInforme a coluna: "
+prompt_coordenada_j: 	.asciiz "\nInforme a coluna (a partir de 1): "
 msg_j_errado:	 	.asciiz "Coluna informada é inválida\n"
 msg_tamanho_errado: 	.asciiz "\n\nO tamanho informado é inválido!\n\n"
 print_nova_linha: 	.asciiz "\n"
@@ -39,8 +39,9 @@ main:
 	# PRE JOGO
 	# inicializa array mapa com 0
 	la   $a0, matriz_mapa # a0 -> matriz
-	move $a1, $0          # a1 -> valor inicial
+	add  $a1, $0, $0      # a1 -> valor inicial
 	jal  inicializa_array
+	
 	# inicializa array user com -1
 	la   $a0, matriz_user # a0 -> matriz
 	addi $a1, $0, -1      # a1 -> valor inicial
@@ -51,7 +52,7 @@ main:
 	# salvar o valor na label tamanho
 	la   $t1, tamanho
  	sw   $v0, 0($t1)
-	
+ 		
 	# carrega bombas no array mapa
 	la   $a0, matriz_mapa # a0 -> matriz
 	lw   $a1, tamanho     # a1 -> qtd linhas
@@ -70,22 +71,18 @@ main:
 	sw   $t1, 0($t0)
 	
 loop_jogo:
-	la   $a0, matriz_user
-	lw   $a1, tamanho
-	jal  renderiza_mapa
-
 	# le IxJ informado pelo usuario
 	lw   $a0, tamanho
 	jal  obtem_ij_usuario
-	add  $t0, $v0, $0
-	add  $t1, $v1, $0
-	addi $v0, $zero, 1 # print integer
-	add  $a0, $0, $t0
-	syscall
-	add  $a0, $0, $t1
-	syscall
+	# as entradas de i e j são a partir de 1
+	# para tratar via cálculo, precisamos a partir de 0
+	# por isso é subtraído um no momento momento
+	# que salva em variáveis temporárias
+	addi $t0, $v0, -1 #i 
+	addi $t1, $v1, -1 #j
 	
 	# acessa valor no mapa
+	
 	# se o campo for 9
 		# seta derrota e finalizar loop
 	# incrementa controle de campos
@@ -407,11 +404,11 @@ return_renderiza_mapa:
 #########################
 inicializa_array:
 	add  $t0, $zero, $zero # count
-	move $t1, $a0 # t1 -> endereço do mapa
-	move $t2, $a1 # t2 -> valor inicial
+	add  $t1, $0, $a0 # t1 -> endereço do mapa
+	add  $t2, $0, $a1 # t2 -> valor inicial
 
 loop_inicializa_array:
-	slti $t5, $t0, 9 # count < 9
+	slti $t5, $t0, 81 # count < 9
 	beq  $t5, $zero, return_inicializa_array
 	sw   $t2, 0($t1) # seta o valor passado por parametro na posição count
 	addi $t1, $t1, 4 # apontador do enderço do array
