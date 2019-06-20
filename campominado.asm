@@ -11,19 +11,16 @@ msg_tamanho_errado: 	.asciiz "\n\nO tamanho informado é inválido!\n\n"
 print_nova_linha: 	.asciiz "\n"
 print_espaco:	 	.asciiz " "
 interrogacao:	 	.asciiz "?"
+msg_vitoria: 		.asciiz "\n\n--- NINJA DAS BOMBAS ---\nVocê conseguiu desviar de todas as bombas =D\nParabéns, você ganhou o jogo YUPI!!\n\n"
+msg_derrota: 		.asciiz "\n\n--- Marcha Funebre para você ---\nInfelizmente você pisou numa bomba :(\nAgora você é uma estelinha no céu :')\n\n"
 
 tamanho:	.word 0		# Armazena o tamanho do campo escolhido
-jogo_andamento:	.byte 1		# Armazena a informação que controla execução
-				# Quando jogo_andamento passa ser 0, significa que
-				# que o usuário perdeu ou ganhou
-vitoria_user:	.byte 0		# Quando usuário ja abriu todos campos sem que nenhum fosse uma bomba
-derrota_user:	.byte 0		# Quando usuário abriu um campo com bomba
 
-qtd_disponivel:	.byte 0		# Controla quantidade de campos disponíveis para abrir
-qtd_explorado:	.byte 0		# Controla quantidade de campos já abertos
+qtd_disponivel:	.word 0		# Controla quantidade de campos disponíveis para abrir
+qtd_explorado:	.word 0		# Controla quantidade de campos já abertos
 
 
-#FUNCAO INJETACA (INSERE_BOMBA)
+#FUNCAO INJETADA (INSERE_BOMBA)
 campo:			.space		324
 semente:		.asciiz		"\nEntre com a semente da funcao Rand: "
 espaco:			.asciiz		" "
@@ -32,7 +29,7 @@ posicao:		.asciiz		"\nPosicao: "
 salva_S0:		.word		0
 salva_ra:		.word		0
 salva_ra1:		.word		0
-#FUNCAO INJETACA (INSERE_BOMBA)
+#FUNCAO INJETADA (INSERE_BOMBA)
 
 	.text
 main:
@@ -64,23 +61,19 @@ main:
 	jal  calcula_mapa
 	
 	# inicia contadores
-	lw   $t0, tamanho
-	mul  $t1, $t0, $t0
-	sw   $t1, qtd_disponivel
-	sw   $0, qtd_explorado
+	sw   $0,  qtd_explorado
+	la   $a0, matriz_mapa # a0 -> matriz
+	lw   $a1, tamanho     # a1 -> qtd linhas
+	jal  obtem_qtd_bombas	
+	# determina a quantidade de celulas disponíveis
+	lw   $t0, tamanho     # qtd linhas
+	mul  $t0, $t0, $t0    # qtd * qtd = numero celulas
+	sub  $t0, $t0, $v0    # qtd disponivel = numero celulas - qtd bombas
+	sw   $t0, qtd_disponivel
 
 	
-	# INICIO
-	# define controle do jogo
-	addi $t1, $0, 1
-	la   $t0, jogo_andamento
-	sw   $t1, 0($t0)
-	
-loop_jogo:
-	# loop enquanto jogo esta em andamento
-	lw   $t0, jogo_andamento
-	beq  $t0, $0, fim_jogo
-	
+	# INICIO	
+loop_jogo:	
 	# renderiza mapa a cada rodada
 	la   $a0, matriz_user
 	lw   $a1, tamanho
@@ -105,7 +98,7 @@ loop_jogo:
 	lw   $s2, 0($v0) # valor do campo
 	
 	# se o campo for 9, então fim de jogo
-	# beq  $t2, 9, campo_bomba
+	beq  $s2, 9, campo_bomba
 	j    campo_seguro
 
 campo_seguro:
@@ -116,34 +109,132 @@ campo_seguro:
 	add  $a2, $0, $s0     # i
 	add  $a3, $0, $s1     # j
 	jal  obtem_addr_matriz
+	lw   $t0, 0($v0) # valor atual do campo
 	sw   $s2, 0($v0) # replica o valor do campo
 	
-	# incrementa controle de campos
+	# incrementa controle de campos somente
+	# quando valor for -1
+	# se não for -1, significa que foi
+	# um campo já explorado
+	seq  $t1, $t0, -1
+	beq  $t1, $0, fim_rodada
+	
 	lw   $t0, qtd_explorado
 	addi $t0, $t0, 1
 	sw   $t0, qtd_explorado
 	
 	j    fim_rodada
 	
-
 campo_bomba:
-	# seta derrota e finalizar loop
-	sw   $0, jogo_andamento
-	j    loop_jogo
+	# user[i][j] = mapa[i][j] 
+	la   $a0, matriz_user # endereço array
+	lw   $a1, tamanho     # tamanho matriz
+	add  $a2, $0, $s0     # i
+	add  $a3, $0, $s1     # j
+	jal  obtem_addr_matriz
+	sw   $s2, 0($v0) # replica o valor do campo
+	
+	# finalizar loop
+	j    fim_jogo_derrota
 
 fim_rodada:	
+	lw   $t0, qtd_explorado
+	lw   $t1, qtd_disponivel
 	# jogo finaliza quando qtd explorado == qtd disponivel
+	beq  $t0, $t1, fim_jogo_vitoria
 	j    loop_jogo
 	
 	
 	# POS JOGO
-fim_jogo:
+fim_jogo_vitoria:
+	la   $a0, matriz_user
+	lw   $a1, tamanho
+	jal  renderiza_mapa
+	
+	# mensagem de fim do jogo
+	addi $v0, $0, 4 # print string
+	la   $a0, msg_vitoria
+	syscall
+
+	# exibe mensagens conforme resultado
+	j    fim
+	
+fim_jogo_derrota:
+	la   $a0, matriz_user
+	lw   $a1, tamanho
+	jal  renderiza_mapa
+	
+	# mensagem de fim do jogo
+	addi $v0, $0, 4 # print string
+	la   $a0, msg_derrota
+	syscall
+	
+	# renderiza
+	la   $a0, matriz_user
+	lw   $a1, tamanho
+	jal  renderiza_mapa
+	
 	# exibe mensagens conforme resultado
 	j    fim
 	
 fim:
 	addi $v0, $zero, 10 # exit 
 	syscall
+
+		
+	
+	
+	
+#########################
+#   OBTEM QTD BOMBAS    #
+#########################
+# Argumentos:
+# $a0 -> Endereço matriz
+# $a1 -> Tamanho da matriz
+# 
+# Retorno:
+# $v0 -> Quantidade de bombas na matriz
+#
+# Descrição:
+# Retorna um valor inteiro referente
+# a quantidade de bombas existentes na matriz informada
+#########################
+obtem_qtd_bombas:
+	# Salva os argumentos
+	add  $t0, $zero, $zero # $t0 i -> linha
+			       # $t1 j -> coluna
+	add  $t2, $zero, $zero # $t2 -> quantidade de bombas
+	add  $t6, $zero, $a0   # endereço da matriz
+	add  $t7, $zero, $a1   # tamanho da matriz
+	
+loop_obtem_qtd_bombas_i:
+	slt  $t3, $t0, $t7 # i < tamanho
+	beq  $t3, $zero, return_obtem_qtd_bombas
+	add  $t1, $zero, $zero # zera registrador de j
+	
+loop_obtem_qtd_bombas_j:
+	slt  $t3, $t1, $t7 # j < tamanho
+	beq  $t3, $zero, fim_loop_obtem_qtd_bombas_j
+	
+	# leitura da posicao
+	mul  $t3, $t0, $t7 # posicao = (i * tamanho)
+	add  $t3, $t3, $t1 # posicao = j + (i * tamanho)
+	sll  $t3, $t3, 2   # posicao = 4 * (j + (i * tamanho))
+	add  $t3, $t3, $t6 # array[posicao]
+	lw   $t4, 0($t3)
+	
+	addi $t1, $t1, 1 # incremento coluna
+	bne  $t4, 9, loop_obtem_qtd_bombas_j 
+	addi $t2, $t2, 1 # incrementar contagem de bombas
+	j    loop_obtem_qtd_bombas_j
+		
+fim_loop_obtem_qtd_bombas_j:
+	addi $t0, $t0, 1 # incremento linha
+	j    loop_obtem_qtd_bombas_i
+
+return_obtem_qtd_bombas:
+	add  $v0, $zero, $t2
+	jr   $ra
 
 		
 	
@@ -178,7 +269,8 @@ obtem_addr_matriz:
 	add  $t4, $t4, $a3 # posicao = j + (i * tamanho)
 	sll  $t4, $t4, 2   # posicao = 4 * (j + (i * tamanho))
 	add  $t4, $t4, $a0 # array[posicao]
-	lw   $v0, 0($t4)
+
+	add  $v0, $0, $t4
 	
 return_obtem_addr_matriz:
 	jr   $ra
@@ -435,7 +527,8 @@ loop_renderiza_mapa_j:
 	addi $v0, $zero, 1 # print integer
 	la   $a0, 0($s0)
 	syscall
-	j    loop_renderiza_print_espaco	
+	j    loop_renderiza_print_espaco
+		
 loop_renderiza_print_interrogacao:
 	addi $v0, $zero, 4 # print string
 	la   $a0, interrogacao
@@ -451,7 +544,6 @@ loop_renderiza_print_espaco:
 	j    loop_renderiza_mapa_j
 fim_loop_renderiza_mapa_j:
 	addi $t0, $t0, 1 # incremento linha
-
 	# print novalinha
 	addi $v0, $zero, 4 # print string
 	la   $a0, print_nova_linha
@@ -542,7 +634,7 @@ return_obtem_tamanho:
 
 
 
-#FUNCAO INJETACA (INSERE_BOMBA)
+#FUNCAO INJETADA (INSERE_BOMBA)
 INSERE_BOMBA:
 		la	$t0, salva_S0
 		sw  $s0, 0($t0)		# salva conteudo de s0 na memoria
@@ -642,4 +734,4 @@ PSEUDO_RAND:
 	div  $s0, $a0			# a % lim
 	mfhi $v0                # v0 = a % lim
 	jr $ra
-#FUNCAO INJETACA (INSERE_BOMBA)
+#FUNCAO INJETADA (INSERE_BOMBA)
