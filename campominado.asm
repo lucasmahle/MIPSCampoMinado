@@ -34,23 +34,23 @@ salva_ra1:		.word		0
 	.text
 main:
 	# PRE JOGO
-	# inicializa array mapa com 0
+	# inicializa matriz mapa com 0
 	la   $a0, matriz_mapa # a0 -> matriz
-	add  $a1, $0, $0      # a1 -> valor inicial
-	jal  inicializa_array
+	li   $a1, 0  	      # a1 -> valor inicial
+	jal  inicializa_matriz
 	
-	# inicializa array user com -1
+	# inicializa matriz user com -1
 	la   $a0, matriz_user # a0 -> matriz
-	addi $a1, $0, -1      # a1 -> valor inicial
-	jal  inicializa_array
+	li   $a1, -1	      # a1 -> valor inicial
+	jal  inicializa_matriz
 	
 	# obtem tamanho do mapa
 	jal  obtem_tamanho
-	# salvar o valor na label tamanho
+	# salva o valor na label tamanho
 	la   $t1, tamanho
  	sw   $v0, 0($t1)
  		
-	# carrega bombas no array mapa
+	# carrega bombas na matriz mapa
 	la   $a0, matriz_mapa # a0 -> matriz
 	lw   $a1, tamanho     # a1 -> qtd linhas
 	jal  INSERE_BOMBA
@@ -83,60 +83,47 @@ loop_jogo:
 	lw   $a0, tamanho
 	jal  obtem_ij_usuario
 	# as entradas de i e j são a partir de 1
-	# para tratar via cálculo, precisamos a partir de 0
-	# por isso é subtraído um no momento momento
-	# que salva em variáveis temporárias
+	# para tratar via cálculo, precisamos 
+	# que sejam a partir de 0
+	# por isso é subtraído 1 dos valores
 	addi $s0, $v0, -1 #i 
 	addi $s1, $v1, -1 #j
 	
 	# acessa endereço ref i e j do mapa
-	la   $a0, matriz_mapa # endereço array
+	la   $a0, matriz_mapa # endereço matriz
 	lw   $a1, tamanho     # tamanho matriz
 	add  $a2, $0, $s0     # i
 	add  $a3, $0, $s1     # j
-	jal  obtem_addr_matriz
-	lw   $s2, 0($v0) # valor do campo
+	jal  obtem_addr_campo
+	lw   $s2, 0($v0) # valor de matriz[i][j]
 	
-	# se o campo for 9, então fim de jogo
-	beq  $s2, 9, campo_bomba
-	j    campo_seguro
-
-campo_seguro:
+replica_campo_matriz:
 	# replica o valor no mapa de renderização
 	# user[i][j] = mapa[i][j] 
-	la   $a0, matriz_user # endereço array
+	la   $a0, matriz_user # endereço matriz
 	lw   $a1, tamanho     # tamanho matriz
-	add  $a2, $0, $s0     # i
-	add  $a3, $0, $s1     # j
-	jal  obtem_addr_matriz
-	lw   $t0, 0($v0) # valor atual do campo
-	sw   $s2, 0($v0) # replica o valor do campo
+	move $a2, $s0	      # i
+	move $a3, $s1	      # j
+	jal  obtem_addr_campo
+	lw   $s3, 0($v0) # obtem o valor atual (se é -1 ou outro valor)
+	sw   $s2, 0($v0) # replica o valor obtino na matriz de controle
 	
+	# se o campo for 9, então fim de jogo
+	beq  $s2, 9, fim_jogo_derrota
+	# caso contrário segue o jogo
+	
+campo_seguro:
 	# incrementa controle de campos somente
 	# quando valor for -1
 	# se não for -1, significa que foi
 	# um campo já explorado
-	seq  $t1, $t0, -1
+	seq  $t1, $s3, -1
 	beq  $t1, $0, fim_rodada
 	
 	lw   $t0, qtd_explorado
 	addi $t0, $t0, 1
 	sw   $t0, qtd_explorado
 	
-	j    fim_rodada
-	
-campo_bomba:
-	# user[i][j] = mapa[i][j] 
-	la   $a0, matriz_user # endereço array
-	lw   $a1, tamanho     # tamanho matriz
-	add  $a2, $0, $s0     # i
-	add  $a3, $0, $s1     # j
-	jal  obtem_addr_matriz
-	sw   $s2, 0($v0) # replica o valor do campo
-	
-	# finalizar loop
-	j    fim_jogo_derrota
-
 fim_rodada:	
 	lw   $t0, qtd_explorado
 	lw   $t1, qtd_disponivel
@@ -147,34 +134,31 @@ fim_rodada:
 	
 	# POS JOGO
 fim_jogo_vitoria:
-	la   $a0, matriz_user
-	lw   $a1, tamanho
-	jal  renderiza_mapa
-	
 	# mensagem de fim do jogo
 	addi $v0, $0, 4 # print string
 	la   $a0, msg_vitoria
 	syscall
-
-	# exibe mensagens conforme resultado
-	j    fim
 	
-fim_jogo_derrota:
+	# renderiza resultado final
 	la   $a0, matriz_user
 	lw   $a1, tamanho
 	jal  renderiza_mapa
 	
+	# fim de jogo
+	j    fim
+	
+fim_jogo_derrota:	
 	# mensagem de fim do jogo
 	addi $v0, $0, 4 # print string
 	la   $a0, msg_derrota
 	syscall
 	
-	# renderiza
+	# renderiza resultado final
 	la   $a0, matriz_user
 	lw   $a1, tamanho
 	jal  renderiza_mapa
 	
-	# exibe mensagens conforme resultado
+	# fim de jogo
 	j    fim
 	
 fim:
@@ -201,16 +185,16 @@ fim:
 #########################
 obtem_qtd_bombas:
 	# Salva os argumentos
-	add  $t0, $zero, $zero # $t0 i -> linha
-			       # $t1 j -> coluna
-	add  $t2, $zero, $zero # $t2 -> quantidade de bombas
-	add  $t6, $zero, $a0   # endereço da matriz
-	add  $t7, $zero, $a1   # tamanho da matriz
+	li   $t0, 0 # $t0 i -> linha
+	li   $t1, 0 # $t1 j -> coluna
+	li   $t2, 0 # $t2 -> quantidade de bombas
+	move $t6, $a0 # endereço da matriz
+	move $t7, $a1 # tamanho da matriz
 	
 loop_obtem_qtd_bombas_i:
 	slt  $t3, $t0, $t7 # i < tamanho
 	beq  $t3, $zero, return_obtem_qtd_bombas
-	add  $t1, $zero, $zero # zera registrador de j
+	li   $t1, 0 # zera registrador de j
 	
 loop_obtem_qtd_bombas_j:
 	slt  $t3, $t1, $t7 # j < tamanho
@@ -220,7 +204,7 @@ loop_obtem_qtd_bombas_j:
 	mul  $t3, $t0, $t7 # posicao = (i * tamanho)
 	add  $t3, $t3, $t1 # posicao = j + (i * tamanho)
 	sll  $t3, $t3, 2   # posicao = 4 * (j + (i * tamanho))
-	add  $t3, $t3, $t6 # array[posicao]
+	add  $t3, $t3, $t6 # matriz[posicao]
 	lw   $t4, 0($t3)
 	
 	addi $t1, $t1, 1 # incremento coluna
@@ -233,7 +217,7 @@ fim_loop_obtem_qtd_bombas_j:
 	j    loop_obtem_qtd_bombas_i
 
 return_obtem_qtd_bombas:
-	add  $v0, $zero, $t2
+	move $v0, $t2
 	jr   $ra
 
 		
@@ -241,13 +225,13 @@ return_obtem_qtd_bombas:
 	
 	
 #########################
-#   OBTEM ADDR MATRIZ   #
+#   OBTEM ADDR CAMPO    #
 #########################
 # Argumentos:
 # $a0 -> Endereço matriz
 # $a1 -> Tamanho da matriz
 # $a2 -> Linha
-# $a3 -> Colina
+# $a3 -> Coluna
 # 
 # Retorno:
 # $v0 -> Endereço do campo
@@ -257,22 +241,20 @@ return_obtem_qtd_bombas:
 # por i e j
 # Obs: i e j a partir de 0
 #########################
-obtem_addr_matriz:
-	# Salva o argumentos
-	add  $t0, $0, $a0 # enderço
-	add  $t1, $0, $a1 # tamanho
-	add  $t2, $0, $a2 # i
-	add  $t3, $0, $a3 # j
+obtem_addr_campo:
+	# Salva os argumentos
+	move $t0, $a0 # endereço
+	move $t1, $a1 # tamanho
+	move $t2, $a2 # i
+	move $t3, $a3 # j
 
 	# leitura da posicao
 	mul  $t4, $a2, $a1 # posicao = (i * tamanho)
 	add  $t4, $t4, $a3 # posicao = j + (i * tamanho)
 	sll  $t4, $t4, 2   # posicao = 4 * (j + (i * tamanho))
-	add  $t4, $t4, $a0 # array[posicao]
-
-	add  $v0, $0, $t4
+	add  $v0, $t4, $a0 # matriz[posicao]
 	
-return_obtem_addr_matriz:
+return_obtem_addr_campo:
 	jr   $ra
 
 		
@@ -283,20 +265,21 @@ return_obtem_addr_matriz:
 #   OBTEM I J USUARIO   #
 #########################
 # Argumentos:
-# $a0 -> Numero de linhas e colunas
+# $a0 -> Tamanho da matriz
 # 
 # Retorno:
-# $v0 -> Linha
-# $v1 -> Coluna
+# $v0 -> Linha (i)
+# $v1 -> Coluna (j)
 #
 # Descrição:
 # Exibe mensagem para informar a linha
-# e a coluna deseja. Caso seja um valor
+# e a coluna desejada. Caso seja um valor
 # inválido, é repetida a entrada
 #########################
 obtem_ij_usuario:
 	# Salva o argumento do tamanho
 	add  $t0, $0, $a0
+	
 i_obtem_ij_usuario:
 	# Mensagem para informar linha
 	addi $v0, $0, 4 # print string
@@ -304,13 +287,13 @@ i_obtem_ij_usuario:
 	syscall
 	addi $v0, $0, 5 # entrada de dados
 	syscall
+	
 	# verifica se o valor é valido
-	add  $t1, $0, $v0
-	sgt  $t2, $t1, $0 # valor negativo
-	beq  $t2, 0, erro_i_ij_usuario
-	sgt  $t2, $t1, $t0 # maior que o limite
-	bne  $t2, 0, erro_i_ij_usuario
-	add  $t6, $0, $t1
+	sgt  $t2, $v0, $0 # valor negativo
+	beq  $t2, 0, erro_i_obtem_ij_usuario
+	sgt  $t2, $v0, $t0 # maior que o limite
+	bne  $t2, 0, erro_i_obtem_ij_usuario
+	move $t6, $v0 # salva o I informado
 	
 j_obtem_ij_usuario:
 	# Mensagem para informar linha
@@ -319,33 +302,35 @@ j_obtem_ij_usuario:
 	syscall
 	addi $v0, $0, 5 # entrada de dados
 	syscall
+	
 	# verifica se o valor é valido
-	add  $t1, $0, $v0
-	sgt  $t2, $t1, $0 # valor negativo
-	beq  $t2, 0, erro_j_ij_usuario
-	sgt  $t2, $t1, $t0 # maior que o limite
-	bne  $t2, 0, erro_j_ij_usuario
-	add  $t7, $0, $t1
+	sgt  $t2, $v0, $0 # valor negativo
+	beq  $t2, 0, erro_j_obtem_ij_usuario
+	sgt  $t2, $v0, $t0 # maior que o limite
+	bne  $t2, 0, erro_j_obtem_ij_usuario
+	move $t7, $v0
 	
 	j    return_obtem_ij_usuario
 	
-erro_i_ij_usuario:
+erro_i_obtem_ij_usuario:
 	# Mensagem de linha errada
 	addi $v0, $0, 4 # print info
 	la   $a0, msg_i_errado
 	syscall
+	
 	j    i_obtem_ij_usuario
 	
-erro_j_ij_usuario:
+erro_j_obtem_ij_usuario:
 	# Mensagem de linha errada
 	addi $v0, $0, 4 # print info
 	la   $a0, msg_j_errado
 	syscall
+	
 	j    j_obtem_ij_usuario
 
 return_obtem_ij_usuario:
-	add  $v0, $0, $t6
-	add  $v1, $0, $t7
+	move $v0, $t6
+	move $v1, $t7
 	jr   $ra
 
 		
@@ -353,22 +338,22 @@ return_obtem_ij_usuario:
 	
 	
 #########################
-#     CALCULA ARRAY     #
+#     CALCULA MATRIZ    #
 #########################
 # Argumentos:
-# $a0 -> Endereço do array
+# $a0 -> Endereço da matriz
 # $a1 -> Numero de linhas e colunas
 # 
 # Retorno:
 # void
 #
 # Descrição:
-# Intera array em busca das bombas
+# Intera matriz em busca das bombas
 # e incrementa valores nos vizinhos
 #########################
 calcula_mapa:
 	add  $s2, $zero, $zero # i = linha
-	move $s0, $a0 # endereço array
+	move $s0, $a0 # endereço matriz
 	move $s1, $a1 # tamanho
 	move $s4, $ra # salva retorno
 
@@ -385,13 +370,14 @@ loop_calcula_mapa_j:
 	mul  $t4, $s2, $s1 # posicao = (i * tamanho)
 	add  $t4, $t4, $s3 # posicao = j + (i * tamanho)
 	sll  $t4, $t4, 2   # posicao = 4 * (j + (i * tamanho))
-	add  $t4, $t4, $s0 # array[posicao]
+	add  $t4, $t4, $s0 # matriz[posicao]
 	lw   $t6, 0($t4)
 	
 	# se nao for bomba, continua a procura
 	bne  $t6, 9, jump_calcula_mapa
+	
 	# mas se for, chama a funcao de incremento dos vizinhos
-	move $a0, $s0 # $a0 -> endereço do array
+	move $a0, $s0 # $a0 -> endereço do matriz
 	move $a1, $s1 # $a1 -> tamanho
 	move $a2, $s2 # $a2 -> i
 	move $a3, $s3 # $a3 -> j
@@ -417,7 +403,7 @@ return_calcula_mapa:
 # INCREMENTA BOMBA VIZINHO #
 ############################
 # Argumentos:
-# $a0 -> Endereço do array
+# $a0 -> Endereço da matriz
 # $a1 -> Numero de linhas e colunas
 # $a2 -> Linha (i)
 # $a3 -> Coluna (j)
@@ -426,8 +412,16 @@ return_calcula_mapa:
 # void
 #
 # Descrição:
-# Calcula a posicao dos vizinhos e
-# incrementa o valor deles
+# Calcula a posição dos vizinhos em relação
+# a bomba e incrementa o valor deles
+# A ideia se baseia em 3 linhas e 3 colunas
+# No caso, uma coluna a esquerda, a coluna da bomba, uma coluna a direita
+# Isso repetido em uma linha anterior, na linha da bomba, uma linha posterior
+# Existe uma variavel que controla a quantidade coluna/linha iterada
+# São as variáveis maxI e maxJ
+# Com a navegação entre campos, caso o valor contído for diferente de 9 (bomba)
+# então é incrementado uma unidade no campo
+# A exceção de voltar uma linha/coluna acontece na borda lateral ou superior
 #########################
 incrementa_bomba_vizinho:
 	addi $t0, $0, 1 # $t0 -> maxI 
@@ -451,17 +445,15 @@ loop_incrementa_bomba_vizinho_i:
 	add  $a2, $a2, 1 # i++
 	beq  $t0, 3, return_incrementa_bomba_vizinho # maxI == 3
 	beq  $t0, $a1, return_incrementa_bomba_vizinho # maxI == tamanho
-	add  $t1, $0, $t4 # seta novamente o valor inicial da contagem de coluna
-	add  $a3, $0, $t5 # reset em j
+	move $t1, $t4 # seta novamente o valor inicial da contagem de coluna
+	move $a3, $t5 # reset em j
 	
-	# $a2 -> i
-	# $a3 -> j
 loop_incrementa_bomba_vizinho:	
 	# leitura da posicao
 	mul  $t3, $a2, $a1 # posicao = (i * tamanho)
 	add  $t3, $t3, $a3 # posicao = j + (i * tamanho)
 	sll  $t3, $t3, 2   # posicao = 4 * (j + (i * tamanho))
-	add  $t3, $t3, $a0 # array[posicao]
+	add  $t3, $t3, $a0 # matriz[posicao]
 	lw   $t7, 0($t3)   # lê valor da posicao
 	beq  $t7, 9, loop_incrementa_bomba_vizinho_j # ignora o campo bomba
 	addi $t7, $t7, 1   # adiciona o valor da posicao
@@ -485,20 +477,20 @@ return_incrementa_bomba_vizinho:
 #    RENDERIZA MAPA     #
 #########################
 # Argumentos:
-# $a0 -> Endereço do array
-# $a1 -> Numero de linhas e colunas
+# $a0 -> Endereço da matriz
+# $a1 -> Tamanho da matriz
 # 
 # Retorno:
 # void
 #
 # Descrição:
-# Intera array informado e exibe no console
-# o grid do mapa.
+# Intera matriz informada e exibe no console
+# em forma de grid
 # Para valores negativos, é exibido '?' ao 
 # invés de exibir o número negativo
 #########################
 renderiza_mapa:
-	add  $t0, $zero, $zero # i = linha
+	li   $t0, 0   # i = linha
 	move $t7, $a1 # salva o endereço para liberar registrador $a
 	move $t6, $a0
 	
@@ -506,10 +498,12 @@ renderiza_mapa:
 	addi $v0, $zero, 4 # print string
 	la   $a0, print_nova_linha
 	syscall
+	
 loop_renderiza_mapa_i:
 	slt  $t3, $t0, $t7 # i < tamanho
 	beq  $t3, $zero, return_renderiza_mapa
 	add  $t1, $zero, $zero # j = coluna
+	
 loop_renderiza_mapa_j:
 	slt  $t3, $t1, $t7 # j < tamanho
 	beq  $t3, $zero, fim_loop_renderiza_mapa_j
@@ -518,14 +512,14 @@ loop_renderiza_mapa_j:
 	mul  $t4, $t0, $t7 # posicao = (i * tamanho)
 	add  $t4, $t4, $t1 # posicao = j + (i * tamanho)
 	sll  $t4, $t4, 2   # posicao = 4 * (j + (i * tamanho))
-	add  $t2, $t6, $t4 # array[posicao]
-	lw   $s0, 0($t2)
+	add  $t4, $t6, $t4 # matriz[posicao]
+	lw   $t2, 0($t4)
 	
 	# print do valor
-	sge  $t3, $s0, 0 # valores negativos imprime '?'
+	sge  $t3, $t2, 0 # valores negativos imprime '?'
 	beq  $t3, $zero, loop_renderiza_print_interrogacao
 	addi $v0, $zero, 1 # print integer
-	la   $a0, 0($s0)
+	la   $a0, 0($t2)
 	syscall
 	j    loop_renderiza_print_espaco
 		
@@ -542,6 +536,7 @@ loop_renderiza_print_espaco:
 
 	addi $t1, $t1, 1 # incremento coluna
 	j    loop_renderiza_mapa_j
+	
 fim_loop_renderiza_mapa_j:
 	addi $t0, $t0, 1 # incremento linha
 	# print novalinha
@@ -558,34 +553,34 @@ return_renderiza_mapa:
 
 
 #########################
-#   INICIALIZA ARRAY    #
+#   INICIALIZA MATRIZ   #
 #########################
 # Argumentos:
-# $a0 -> Endereço do array
+# $a0 -> Endereço do matriz
 # $a1 -> Valor para inicializar
 # 
 # Retorno:
 # void
 #
 # Descrição:
-# Intera array informado e seta
+# Intera matriz informado e seta
 # em todos os campos o valor passado
 # pelo parâmetro
 #########################
-inicializa_array:
-	add  $t0, $zero, $zero # count
+inicializa_matriz:
+	li   $t0, 0 # count
 	add  $t1, $0, $a0 # t1 -> endereço do mapa
 	add  $t2, $0, $a1 # t2 -> valor inicial
 
-loop_inicializa_array:
-	slti $t5, $t0, 81 # count < 9
-	beq  $t5, $zero, return_inicializa_array
+loop_inicializa_matriz:
+	slti $t5, $t0, 81 # count < 9*9
+	beq  $t5, $zero, return_inicializa_matriz
 	sw   $t2, 0($t1) # seta o valor passado por parametro na posição count
-	addi $t1, $t1, 4 # apontador do enderço do array
+	addi $t1, $t1, 4 # aponta para próxima casa
 	addi $t0, $t0, 1 # incremento do contador
-	j    loop_inicializa_array
+	j    loop_inicializa_matriz
 	
-return_inicializa_array:
+return_inicializa_matriz:
 	jr   $ra
 	
 	
@@ -614,6 +609,7 @@ obtem_tamanho:
 	syscall
 	addi $v0, $0, 5 # entrada de dados
 	syscall
+	
 	# verifica se o valor é valido
 	beq  $v0, 5, return_obtem_tamanho
 	beq  $v0, 7, return_obtem_tamanho
