@@ -11,8 +11,8 @@ msg_tamanho_errado: 	.asciiz "\n\nO tamanho informado é inválido!\n\n"
 print_nova_linha: 	.asciiz "\n"
 print_espaco:	 	.asciiz " "
 interrogacao:	 	.asciiz "?"
-msg_vitoria: 		.asciiz "\n\n--- NINJA DAS BOMBAS ---\nVocê conseguiu desviar de todas as bombas =D\nParabéns, você ganhou o jogo YUPI!!\n\n"
-msg_derrota: 		.asciiz "\n\n--- Marcha Funebre para você ---\nInfelizmente você pisou numa bomba :(\nAgora você é uma estelinha no céu :')\n\n"
+msg_vitoria: 		.asciiz "\n\n--- VOCÊ GANHOU ---\nNão pensei nada criativo para colocar aqui.\nAfinal, não esparava que alguém fosse capaz de concluir o jogo\n\n"
+msg_derrota: 		.asciiz "\n\n--- Marcha Fúnebre para você ---\nInfelizmente você pisou numa bomba :(\nAgora você é uma estrelinha no céu :')\n\n"
 
 tamanho:	.word 0		# Armazena o tamanho do campo escolhido
 
@@ -148,6 +148,12 @@ fim_jogo_vitoria:
 	j    fim
 	
 fim_jogo_derrota:	
+	# exibe todas bombas
+	la   $a0, matriz_mapa
+	la   $a1, matriz_user
+	lw   $a2, tamanho
+	jal  replica_bombas
+	
 	# mensagem de fim do jogo
 	addi $v0, $0, 4 # print string
 	la   $a0, msg_derrota
@@ -164,6 +170,70 @@ fim_jogo_derrota:
 fim:
 	addi $v0, $zero, 10 # exit 
 	syscall
+	
+	
+	
+	
+	
+	
+#########################
+#     REPLICA BOMBAS    #
+#########################
+# Argumentos:
+# $a0 -> Endereço da matriz mapa
+# $a1 -> Endereço da matriz usuário
+# $a2 -> Tamanho das matrizes
+# 
+# Retorno:
+# void
+#
+# Descrição:
+# Itera a matriz mapa seta na matriz usuário
+# todos os campos que possuem bomba
+#########################
+replica_bombas:
+	# Salva os argumentos
+	li   $t0, 0 # $t0 i -> linha
+	li   $t1, 0 # $t1 j -> coluna
+	move $t5, $a0 # endereço matriz mapa
+	move $t6, $a1 # endereço matriz usuario
+	move $t7, $a2 # tamanho da matriz
+	move $t2, $ra # salva o retorno
+	
+loop_replica_bombas_i:
+	slt  $t3, $t0, $t7 # i < tamanho
+	beq  $t3, $zero, return_replica_bombas
+	li   $t1, 0 # zera registrador de j
+	
+loop_replica_bombas_j:
+	slt  $t3, $t1, $t7 # j < tamanho
+	beq  $t3, $zero, fim_loop_replica_bombas_j
+	
+	# leitura da posicao
+	# $t3 deslocamento a partir da base
+	mul  $t3, $t0, $t7 # posicao = (i * tamanho)
+	add  $t3, $t3, $t1 # posicao = j + (i * tamanho)
+	sll  $t3, $t3, 2   # posicao = 4 * (j + (i * tamanho))
+	add  $t4, $t3, $t5 # matriz_mapa[posicao]
+	
+	# valor do campo na matriz mapa
+	lw   $t4, 0($t4)
+	
+	addi $t1, $t1, 1 # incremento coluna
+	bne  $t4, 9, loop_replica_bombas_j 
+	# seta bomba na matriz
+	add  $t4, $t3, $t6 # matriz_usuario[posicao]
+	li   $t3, 9 # reutiliza $t3 para armazenar o valor de bomba
+	sw   $t3, 0($t4)
+	j    loop_replica_bombas_j
+		
+fim_loop_replica_bombas_j:
+	addi $t0, $t0, 1 # incremento linha
+	j    loop_replica_bombas_i
+
+return_replica_bombas:
+	move $ra, $t2
+	jr   $ra
 
 		
 	
@@ -424,15 +494,15 @@ return_calcula_mapa:
 # A exceção de voltar uma linha/coluna acontece na borda lateral ou superior
 #########################
 incrementa_bomba_vizinho:
-	addi $t0, $0, 1 # $t0 -> maxI 
-	addi $t1, $0, 1 # $t1 -> maxJ
+	li   $t0, 1 # $t0 -> maxI 
+	li   $t1, 1 # $t1 -> maxJ
 	beq  $a2, 0, pula_i_incrementa_bomba_vizinho # i == 0 não volta a linha
-	addi $t0, $0, 0 # se volta linha, então maxI começa com 0
+	li   $t0, 0 # se volta linha, então maxI começa com 0
 	addi $a2, $a2, -1 # volta linha
 	
 pula_i_incrementa_bomba_vizinho:
 	beq  $a3, 0, pula_j_incrementa_bomba_vizinho # j == 0 não volta a coluna
-	addi $t1, $0, 0 # se volta linha, então maxJ começa com 0
+	li   $t1, 0 # se volta linha, então maxJ começa com 0
 	addi $a3, $a3, -1 # volta coluna
 	
 pula_j_incrementa_bomba_vizinho:
@@ -444,7 +514,8 @@ loop_incrementa_bomba_vizinho_i:
 	add  $t0, $t0, 1 # maxI++
 	add  $a2, $a2, 1 # i++
 	beq  $t0, 3, return_incrementa_bomba_vizinho # maxI == 3
-	beq  $t0, $a1, return_incrementa_bomba_vizinho # maxI == tamanho
+	# i se igual ao tamanho quando "estoura" as fronteiras da matriz
+	beq  $a2, $a1, return_incrementa_bomba_vizinho # i == tamanho
 	move $t1, $t4 # seta novamente o valor inicial da contagem de coluna
 	move $a3, $t5 # reset em j
 	
@@ -463,6 +534,7 @@ loop_incrementa_bomba_vizinho_j:
 	add  $t1, $t1, 1 # maxJ++
 	add  $a3, $a3, 1 # j++
 	beq  $t1, 3, loop_incrementa_bomba_vizinho_i # maxJ == 3
+	# j se igual ao tamanho quando "estoura" as fronteiras da matriz
 	beq  $a3, $a1, loop_incrementa_bomba_vizinho_i # j == tamanho
 	j    loop_incrementa_bomba_vizinho
 
