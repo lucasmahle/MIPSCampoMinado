@@ -6,6 +6,8 @@ prompt_opcoes: 		.asciiz "Escolha um dos tamanhos:\n5) 5x5\n7) 7x7\n9) 9x9\nTama
 prompt_coordenada_i: 	.asciiz "\nInforme a linha (a partir de 1): "
 msg_i_errado:	 	.asciiz "Linha informada é inválida\n"
 prompt_coordenada_j: 	.asciiz "\nInforme a coluna (a partir de 1): "
+prompt_reiniciar_jogo: 	.asciiz "\nDeseja reiniciar o jogo?\n0) Sim\n1)Não\nOpção: "
+msg_rr_jogo_errado	.asciiz "Opção informada é inválida\n"
 msg_j_errado:	 	.asciiz "Coluna informada é inválida\n"
 msg_tamanho_errado: 	.asciiz "\n\nO tamanho informado é inválido!\n\n"
 print_nova_linha: 	.asciiz "\n"
@@ -168,11 +170,59 @@ fim_jogo_derrota:
 	j    fim
 	
 fim:
+	# Pergunta reinicio
+	jal  reiniciar_jogo
+	beq  $v0, $zero, main
 	addi $v0, $zero, 10 # exit 
 	syscall
 	
 	
 	
+	
+	
+	
+#########################
+#    REINICIAR JOGO     #
+#########################
+# Argumentos:
+# null
+# 
+# Retorno:
+# $v0 -> OPção escolhida
+#
+# Descrição:
+# Exibe mensagem para informar se
+# deseja reiniciar o jogo. Caso seja um valor
+# inválido, é repetida a entrada
+#########################
+reiniciar_jogo:
+	# Mensagem para informar linha
+	addi $v0, $0, 4 # print string
+	la   $a0, prompt_reiniciar_jogo
+	syscall
+	addi $v0, $0, 5 # entrada de dados
+	syscall
+	
+	# verifica se o valor é valido
+	sgt  $t2, $v0, $0 # valor negativo
+	beq  $t2, 0, erro_reiniciar_jogo
+	li   $t0, 1
+	sgt  $t2, $v0, $t0 # maior que 1
+	bne  $t2, 0, erro_reiniciar_jogo
+	j    return_reiniciar_jogo
+	
+erro_reiniciar_jogo:
+	# Mensagem de linha errada
+	addi $v0, $0, 4 # print info
+	la   $a0, msg_rr_jogo_errado
+	syscall
+	
+	j    reiniciar_jogo
+
+return_reiniciar_jogo:
+	jr   $ra
+
+		
 	
 	
 	
