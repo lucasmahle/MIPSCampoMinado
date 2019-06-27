@@ -729,17 +729,17 @@ verifica_maior_que_9:
 testa_5:
 		addi $t3, $0, 5
 		bne  $t1, $t3, testa_7
-		addi $t2, $0, 10 # 10 bombas no campo 5x5
+		addi $t2, $0, 6 # 10 bombas no campo 5x5
 		j	 pega_semente
 testa_7:
 		addi $t3, $0, 7
 		bne  $t1, $t3, testa_9
-		addi $t2, $0, 20 # 20 bombas no campo 7x7
+		addi $t2, $0, 11 # 20 bombas no campo 7x7
 		j	 pega_semente
 testa_9:
 		addi $t3, $0, 9
 		bne  $t1, $t3, else_qtd_bombas
-		addi $t2, $0, 40 # 40 bombas no campo 9x9
+		addi $t2, $0, 20 # 40 bombas no campo 9x9
 		j	 pega_semente
 else_qtd_bombas:
 		addi $t2, $0, 25 # seta para 25 bomas no else		
